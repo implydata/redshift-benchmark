@@ -3,7 +3,7 @@
 if(!require("RDruid")) {
   cat(paste("Benchmark requires the RDruid package, please install using:",
             "install.packages(\"devtools\")",
-            "devtools::install_github(\"RDruid\", \"metamx\")\n", sep="\n"))
+            "devtools::install_github(\"RDruid\", \"druid-io\")\n", sep="\n"))
 }
 
 args <- commandArgs(TRUE)
@@ -19,7 +19,7 @@ suppressMessages(library(microbenchmark))
 host <- args[1]
 url <- druid.url(host)
 
-datasource <- "tpch_lineitem_small"
+datasource <- "tpch_lineitem"
 engine <- "druid-benchmark.tsv"
 n <- 100
 
@@ -31,27 +31,6 @@ cat(sprintf("Running benchmarks against [%s] on [%s], running each query [%d] ti
 
 i <- interval(fromISO("1992-01-01T00:00:00"), fromISO("1999-01-01T00:00:00"))
 
-total_size <- function(datasource) {
-  segments <- fromJSON(as.character(
-    httr::GET(
-      paste("http://10.151.79.16:8080/druid/coordinator/v1/datasources/", datasource, "/segments?full", sep="")
-    )
-  ))
-  sum(laply(segments, function(x) x$size))
-}
-
-countrows <- function(datasource, interval, filter) {
-  druid.query.timeseries(
-    url = url,
-    dataSource   = datasource,
-    intervals    = interval,
-    aggregations = list(druid.count()),
-    filter = filter,
-    granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
-  )$count
-}
-
 count_star_interval <- function(datasource) {
   druid.query.timeseries(
     url = url,
@@ -59,7 +38,9 @@ count_star_interval <- function(datasource) {
     intervals    = interval(ymd(19920103),ymd(19981130)),
     aggregations = list(druid.count()),
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F),
+    verbose = TRUE,
+    benchmark = TRUE
   )
 }
 
@@ -72,7 +53,9 @@ sum_price <- function(datasource) {
       sum(metric("l_extendedprice"))
     ),
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F),
+    verbose = TRUE,
+    benchmark = TRUE
   )
 }
 
@@ -89,7 +72,9 @@ sum_all <- function(datasource) {
     ),
     filter = NULL,
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F),
+    verbose = TRUE,
+    benchmark = TRUE
   )
 }
 
@@ -106,7 +91,9 @@ sum_all_year <- function(datasource) {
     ),
     filter = NULL,
     granularity = granularity("P1Y"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F),
+    verbose = TRUE,
+    benchmark = TRUE
   )
 }
 
@@ -124,7 +111,9 @@ sum_all_filter <- function(datasource) {
     ),
     filter = dimension("l_shipmode") %~% ".*AIR.*",
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F),
+    verbose = TRUE,
+    benchmark = TRUE
   )
 }
 
@@ -141,7 +130,9 @@ top_100_parts <- function(datasource) {
     ),
     filter = NULL,
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F),
+    verbose = TRUE,
+    benchmark = TRUE
   )
 }
 
@@ -155,13 +146,13 @@ top_100_parts_details <- function(datasource) {
     n=100,
     aggregations = list(
       sum(metric("l_quantity")),
-      sum(metric("l_extendedprice")),
-      min(metric("l_discount")),
-      max(metric("l_discount"))
+      sum(metric("l_extendedprice"))
     ),
     filter = NULL,
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F),
+    verbose = TRUE,
+    benchmark = TRUE
   )
 }
 
@@ -176,12 +167,12 @@ top_100_parts_filter <- function(datasource) {
     n=100,
     aggregations = list(
       sum(metric("l_quantity")),
-      sum(metric("l_extendedprice")),
-      min(metric("l_discount")),
-      max(metric("l_discount"))
+      sum(metric("l_extendedprice"))
     ),
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+      context=list(useCache=F, populateCache=F),
+      verbose = TRUE,
+      benchmark = TRUE
   )
 }
 
@@ -198,7 +189,45 @@ top_100_commitdate <- function(datasource) {
     ),
     filter = NULL,
     granularity = granularity("all"),
-    context=list(useCache=F, populateCache=F)
+    context=list(useCache=F, populateCache=F, minTopNThreshold=3500),
+    verbose = TRUE,
+    benchmark = TRUE
+  )
+}
+
+group_by_shipmode <- function(datasource) {
+  druid.query.groupBy(
+    url = url,
+    dataSource   = datasource,
+    intervals    = interval(ymd(19960115), ymd(19980315)),
+    metric = "l_quantity",
+    dimension = "l_shipmode",
+    aggregations = list(
+      sum(metric("l_quantity")),
+      sum(metric("l_extendedprice"))
+    ),
+    granularity = granularity("all"),
+      context=list(useCache=F, populateCache=F),
+      verbose = TRUE,
+      benchmark = TRUE
+  )
+}
+
+group_by_shipmode_v2 <- function(datasource) {
+  druid.query.groupBy(
+    url = url,
+    dataSource   = datasource,
+    intervals    = interval(ymd(19960115), ymd(19980315)),
+    metric = "l_quantity",
+    dimension = "l_shipmode",
+    aggregations = list(
+      sum(metric("l_quantity")),
+      sum(metric("l_extendedprice"))
+    ),
+    granularity = granularity("all"),
+      context=list(useCache=F, populateCache=F, groupByStrategy = 'v2'),
+      verbose = TRUE,
+      benchmark = TRUE
   )
 }
 
@@ -211,7 +240,10 @@ res6 <- microbenchmark(top_100_parts(datasource), times=n)
 res7 <- microbenchmark(top_100_parts_details(datasource), times=n)
 res8 <- microbenchmark(top_100_parts_filter(datasource), times=n)
 res9 <- microbenchmark(top_100_commitdate(datasource), times=n)
+# res10 <- microbenchmark(group_by_shipmode(datasource), times=n)
+# res11 <- microbenchmark(group_by_shipmode_v2(datasource), times=n)
 
+# results <- as.data.frame(rbind(res1, res2, res3, res4, res5, res6, res7, res8, res9, res10, res11))
 results <- as.data.frame(rbind(res1, res2, res3, res4, res5, res6, res7, res8, res9))
 results$time <- results$time / 1e9
 results$query <- as.character(sub("\\(.*\\)", replacement="", results$expr))
@@ -220,18 +252,3 @@ druid <- results[c("query", "time")]
 filename <- paste(engine, ".tsv", sep="")
 cat(sprintf("Writing results to %s.\n", filename))
 write.table(druid, filename, quote=F, sep="\t", col.names=F, row.names=F)
-
-# rowcounts <- c(
-#   count_star_interval = countrows(datasource, interval(ymd(19920103),ymd(19981130)), NULL),
-#   sum_price = countrows(datasource, i, NULL),
-#   sum_all = countrows(datasource, i, NULL),
-#   sum_all_year = countrows(datasource, i, NULL),
-#   sum_all_filter = countrows(datasource, i, dimension("l_shipmode") %~% ".*AIR.*"),
-#   top_100_parts = countrows(datasource, i, NULL),
-#   top_100_parts_details = countrows(datasource, i, NULL),
-#   top_100_parts_filter = countrows(datasource, interval(ymd(19960115), ymd(19980315)), NULL),
-#   top_100_commitdate = countrows(datasource, i, NULL)
-# )
-# 
-# rowcounts <- as.data.frame(cbind(query=names(rowcounts), rows=rowcounts))
-# write.table(rowcounts, paste(datasource, "-rowcounts.tsv", sep=""), quote=F, sep="\t", col.names=F, row.names=F)
