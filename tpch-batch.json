@@ -1,0 +1,109 @@
+{
+  "type": "index_hadoop",
+  "spec": {
+    "ioConfig": {
+      "type": "hadoop",
+      "inputSpec": {
+        "type": "static",
+        "paths": "/path/to/lineitem.tbl.*.gz"
+      }
+    },
+    "dataSchema": {
+      "dataSource": "tpch_lineitem",
+      "granularitySpec": {
+        "type": "uniform",
+        "segmentGranularity": "month",
+        "queryGranularity": "none",
+        "intervals": [
+          "1990-01-01/2000-01-01"
+        ]
+      },
+      "parser": {
+        "type": "hadoopyString",
+        "parseSpec": {
+          "format": "tsv",
+          "delimiter": "|",
+          "timestampSpec": {
+            "column": "l_shipdate",
+            "format": "auto"
+          },
+          "columns": [
+            "l_orderkey",
+            "l_partkey",
+            "l_suppkey",
+            "l_linenumber",
+            "l_quantity",
+            "l_extendedprice",
+            "l_discount",
+            "l_tax",
+            "l_returnflag",
+            "l_linestatus",
+            "l_shipdate",
+            "l_commitdate",
+            "l_receiptdate",
+            "l_shipinstruct",
+            "l_shipmode",
+            "l_comment"
+          ],
+          "dimensionsSpec": {
+            "dimensions": [
+              "l_orderkey",
+              "l_partkey",
+              "l_suppkey",
+              "l_linenumber",
+              "l_returnflag",
+              "l_linestatus",
+              "l_shipdate",
+              "l_commitdate",
+              "l_receiptdate",
+              "l_shipinstruct",
+              "l_shipmode",
+              "l_comment"
+            ]
+          }
+        }
+      },
+      "metricsSpec": [
+        {
+          "name": "count",
+          "type": "count"
+        },
+        {
+          "type": "longSum",
+          "fieldName": "l_quantity",
+          "name": "l_quantity"
+        },
+        {
+          "type": "doubleSum",
+          "fieldName": "l_extendedprice",
+          "name": "l_extendedprice"
+        },
+        {
+          "type": "doubleSum",
+          "fieldName": "l_discount",
+          "name": "l_discount"
+        },
+        {
+          "type": "doubleSum",
+          "fieldName": "l_tax",
+          "name": "l_tax"
+        }
+      ]
+    },
+    "tuningConfig": {
+      "type": "hadoop",
+      "partitionsSpec": {
+        "type": "hashed",
+        "targetPartitionSize": 5000000
+      },
+      "buildV9Directly": true,
+      "jobProperties": {
+        "fs.s3.awsAccessKeyId": "...",
+        "fs.s3.awsSecretAccessKey": "...",
+        "fs.s3.impl": "org.apache.hadoop.fs.s3native.NativeS3FileSystem",
+        "io.compression.codecs": "org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.BZip2Codec,org.apache.hadoop.io.compress.SnappyCodec",
+        "mapreduce.job.user.classpath.first": "true"
+      }
+    }
+  }
+}
